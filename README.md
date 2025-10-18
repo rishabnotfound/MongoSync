@@ -1,8 +1,12 @@
 # MongoSync
 
+<img width="1919" height="951" alt="image" src="https://github.com/user-attachments/assets/8beff637-d7bc-4af4-8c76-2e9a5c27c315" />
+
 Modern MongoDB management dashboard built with Next.js 14, TypeScript, and TailwindCSS.
 
-![Next.js](https://img.shields.io/badge/Next.js-14-black) ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue) ![MongoDB](https://img.shields.io/badge/MongoDB-6-green)
+- Next.js
+- TypeScript
+- MongoDB
 
 ## Features
 
