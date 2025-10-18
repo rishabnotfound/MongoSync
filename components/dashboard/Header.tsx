@@ -36,7 +36,6 @@ export const Header: React.FC = () => {
 
           {connections.length > 0 && (
             <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0">
-              <span className="text-xs sm:text-sm text-muted-foreground hidden md:inline">Connection:</span>
               <select
                 value={activeConnectionId || ''}
                 onChange={(e) => {
@@ -67,9 +66,9 @@ export const Header: React.FC = () => {
             size="sm"
             onClick={toggleCommandPalette}
             className="hidden md:flex"
+            title="Open Command Palette"
           >
-            <Command className="h-4 w-4 mr-1" />
-            <span className="text-xs">⌘K</span>
+            <span className="text-xs font-mono">. + K</span>
           </Button>
 
           <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8 sm:h-10 sm:w-10">

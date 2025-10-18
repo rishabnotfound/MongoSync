@@ -6,6 +6,32 @@ import { NextRequest, NextResponse } from 'next/server';
 import { findDocuments, insertDocument, updateDocument, deleteDocument } from '@/services/mongodb';
 import { ObjectId } from 'mongodb';
 
+// Helper function to convert _id strings to ObjectId
+function convertIdFilter(filter: any): any {
+  if (!filter || typeof filter !== 'object') return filter;
+
+  const converted = { ...filter };
+
+  // Handle _id field specifically
+  if (converted._id && typeof converted._id === 'string') {
+    try {
+      // Try to convert string to ObjectId
+      converted._id = new ObjectId(converted._id);
+    } catch (error) {
+      // If conversion fails, leave as string (in case it's a custom _id)
+    }
+  }
+
+  // Recursively handle nested objects
+  for (const key in converted) {
+    if (typeof converted[key] === 'object' && converted[key] !== null && !(converted[key] instanceof ObjectId)) {
+      converted[key] = convertIdFilter(converted[key]);
+    }
+  }
+
+  return converted;
+}
+
 // GET/POST documents (find/query)
 export async function POST(request: NextRequest) {
   try {
@@ -18,7 +44,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await findDocuments(uri, database, collection, filter, options);
+    // Convert _id strings to ObjectId if present
+    const convertedFilter = convertIdFilter(filter);
+
+    const result = await findDocuments(uri, database, collection, convertedFilter, options);
 
     return NextResponse.json({
       success: true,
@@ -83,12 +112,10 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Convert _id string to ObjectId if present
-    if (filter._id && typeof filter._id === 'string') {
-      filter._id = new ObjectId(filter._id);
-    }
+    // Convert _id strings to ObjectId if present
+    const convertedFilter = convertIdFilter(filter);
 
-    const result = await updateDocument(uri, database, collection, filter, update);
+    const result = await updateDocument(uri, database, collection, convertedFilter, update);
 
     return NextResponse.json({
       success: true,
@@ -118,12 +145,10 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Convert _id string to ObjectId if present
-    if (filter._id && typeof filter._id === 'string') {
-      filter._id = new ObjectId(filter._id);
-    }
+    // Convert _id strings to ObjectId if present
+    const convertedFilter = convertIdFilter(filter);
 
-    const result = await deleteDocument(uri, database, collection, filter);
+    const result = await deleteDocument(uri, database, collection, convertedFilter);
 
     return NextResponse.json({
       success: true,

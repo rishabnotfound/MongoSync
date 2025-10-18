@@ -1,6 +1,6 @@
 /**
  * Command Palette Component
- * Keyboard-driven command interface (Ctrl/Cmd + K)
+ * Keyboard-driven command interface (. + K)
  */
 
 'use client';
@@ -26,15 +26,36 @@ export const CommandPalette: React.FC = () => {
   const [search, setSearch] = useState('');
 
   useEffect(() => {
+    let periodPressed = false;
+    let periodTimeout: NodeJS.Timeout;
+
     const down = (e: KeyboardEvent) => {
-      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        toggleCommandPalette();
+      // Check for . + K combination
+      if (e.key === '.') {
+        periodPressed = true;
+        // Reset after 1 second if K is not pressed
+        periodTimeout = setTimeout(() => {
+          periodPressed = false;
+        }, 1000);
+      } else if (e.key === 'k' || e.key === 'K') {
+        if (periodPressed) {
+          e.preventDefault();
+          toggleCommandPalette();
+          periodPressed = false;
+          clearTimeout(periodTimeout);
+        }
+      } else {
+        // Reset on any other key
+        periodPressed = false;
+        clearTimeout(periodTimeout);
       }
     };
 
     document.addEventListener('keydown', down);
-    return () => document.removeEventListener('keydown', down);
+    return () => {
+      document.removeEventListener('keydown', down);
+      clearTimeout(periodTimeout);
+    };
   }, [toggleCommandPalette]);
 
   if (!commandPaletteOpen) return null;

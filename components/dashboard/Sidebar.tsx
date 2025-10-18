@@ -40,6 +40,31 @@ interface CollectionNode {
   size?: number;
 }
 
+// Helper function to format large numbers (1000 -> 1K, 1000000 -> 1M)
+const formatCount = (count: number): string => {
+  if (count >= 1000000) {
+    return `${(count / 1000000).toFixed(1)}M`;
+  } else if (count >= 1000) {
+    return `${(count / 1000).toFixed(1)}K`;
+  }
+  return count.toLocaleString();
+};
+
+// Helper function to format bytes to human-readable size
+const formatSize = (bytes: number): string => {
+  const kb = bytes / 1024;
+  const mb = kb / 1024;
+  const gb = mb / 1024;
+
+  if (gb >= 1) {
+    return `${gb.toFixed(1)} GB`;
+  } else if (mb >= 1) {
+    return `${mb.toFixed(1)} MB`;
+  } else {
+    return `${kb.toFixed(1)} KB`;
+  }
+};
+
 export const Sidebar: React.FC = () => {
   const {
     connections,
@@ -495,7 +520,7 @@ export const Sidebar: React.FC = () => {
                   </div>
                   {db.sizeOnDisk && (
                     <div className="text-xs text-muted-foreground pl-9">
-                      {(db.sizeOnDisk / 1024 / 1024).toFixed(2)} MB
+                      {formatSize(db.sizeOnDisk)}
                     </div>
                   )}
                 </div>
@@ -554,9 +579,9 @@ export const Sidebar: React.FC = () => {
                           </div>
                           {(collection.count !== undefined || collection.size !== undefined) && (
                             <div className="text-xs text-muted-foreground pl-5">
-                              {collection.count !== undefined && `${collection.count.toLocaleString()} docs`}
+                              {collection.count !== undefined && `${formatCount(collection.count)} docs`}
                               {collection.count !== undefined && collection.size !== undefined && ' • '}
-                              {collection.size !== undefined && `${(collection.size / 1024).toFixed(1)} KB`}
+                              {collection.size !== undefined && formatSize(collection.size)}
                             </div>
                           )}
                         </div>
