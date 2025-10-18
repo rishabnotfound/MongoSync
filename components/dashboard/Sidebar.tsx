@@ -5,7 +5,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   ChevronRight,
   ChevronDown,
@@ -25,6 +25,7 @@ import { Modal } from '@/components/ui/Modal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { startProgress, stopProgress } from '@/components/ProgressBar';
 
 interface DatabaseNode {
   name: string;
@@ -92,12 +93,16 @@ export const Sidebar: React.FC = () => {
     dbName?: string;
   }>({ isOpen: false, type: 'database', name: '' });
 
+  // Track previous activeTabId to detect tab changes
+  const prevActiveTabIdRef = useRef<string | null>(null);
+
   const activeConnection = connections.find((c) => c.id === activeConnectionId);
 
   const loadDatabases = useCallback(async () => {
     if (!activeConnection) return;
 
     setIsRefreshing(true);
+    startProgress();
 
     try {
       const response = await fetch('/api/mongodb/databases', {
@@ -122,6 +127,7 @@ export const Sidebar: React.FC = () => {
       console.error('Error loading databases:', error);
     } finally {
       setIsRefreshing(false);
+      stopProgress();
     }
   }, [activeConnection]);
 
@@ -136,6 +142,8 @@ export const Sidebar: React.FC = () => {
 
   // Auto-expand database when active tab changes
   useEffect(() => {
+    if (!activeTabId) return;
+
     const activeTab = tabs.find((t) => t.id === activeTabId);
     if (!activeTab || activeTab.connectionId !== activeConnectionId || databases.length === 0) {
       return;
@@ -144,74 +152,19 @@ export const Sidebar: React.FC = () => {
     const db = databases.find((d) => d.name === activeTab.database);
     if (!db) return;
 
-    // Always expand the database if it's not expanded
+    // If database is not expanded, expand it
     if (!db.isExpanded) {
       if (db.collections.length === 0 && !db.isLoading) {
-        // Need to load collections first
-        setDatabases((prev) =>
-          prev.map((d) => (d.name === activeTab.database ? { ...d, isExpanded: true, isLoading: true } : d))
-        );
-
-        // Load collections
-        if (activeConnection) {
-          fetch('/api/mongodb/collections', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              uri: activeConnection.uri,
-              database: activeTab.database,
-            }),
-          })
-            .then(res => res.json())
-            .then(async (result) => {
-              if (result.success) {
-                const collectionsWithStats = await Promise.all(
-                  result.data.collections.map(async (c: any) => {
-                    try {
-                      const statsResponse = await fetch('/api/mongodb/stats', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          uri: activeConnection.uri,
-                          database: activeTab.database,
-                          collection: c.name,
-                        }),
-                      });
-                      const statsResult = await statsResponse.json();
-                      return {
-                        name: c.name,
-                        count: statsResult.data?.stats?.count || 0,
-                        size: statsResult.data?.stats?.size || 0,
-                      };
-                    } catch {
-                      return { name: c.name, count: 0, size: 0 };
-                    }
-                  })
-                );
-
-                setDatabases((prev) =>
-                  prev.map((d) =>
-                    d.name === activeTab.database
-                      ? { ...d, collections: collectionsWithStats, isLoading: false }
-                      : d
-                  )
-                );
-              }
-            })
-            .catch(() => {
-              setDatabases((prev) =>
-                prev.map((d) => (d.name === activeTab.database ? { ...d, isLoading: false } : d))
-              );
-            });
-        }
-      } else {
+        // Load collections and expand
+        loadCollections(activeTab.database);
+      } else if (db.collections.length > 0) {
         // Collections already loaded, just expand
         setDatabases((prev) =>
           prev.map((d) => (d.name === activeTab.database ? { ...d, isExpanded: true } : d))
         );
       }
     }
-  }, [activeTabId, activeConnectionId, databases, tabs, activeConnection]);
+  }, [activeTabId, databases, activeConnectionId, tabs]);
 
   const loadCollections = async (databaseName: string) => {
     if (!activeConnection) return;
@@ -219,6 +172,7 @@ export const Sidebar: React.FC = () => {
     setDatabases((prev) =>
       prev.map((db) => (db.name === databaseName ? { ...db, isLoading: true } : db))
     );
+    startProgress();
 
     try {
       const response = await fetch('/api/mongodb/collections', {
@@ -275,6 +229,8 @@ export const Sidebar: React.FC = () => {
       setDatabases((prev) =>
         prev.map((db) => (db.name === databaseName ? { ...db, isLoading: false } : db))
       );
+    } finally {
+      stopProgress();
     }
   };
 
@@ -479,16 +435,23 @@ export const Sidebar: React.FC = () => {
               <p className="text-sm text-muted-foreground text-center py-4">No databases found</p>
             )}
 
-            {databases.map((db) => (
+            {databases.map((db) => {
+              // Check if this database contains the active collection
+              const activeTab = tabs.find((t) => t.id === activeTabId);
+              const isActiveDatabase = activeTab && activeTab.database === db.name && activeTab.connectionId === activeConnectionId;
+
+              return (
               <div key={db.name} className="group">
                 {/* Database Node */}
                 <div className="w-full flex flex-col gap-0.5 px-2 py-1.5 rounded hover:bg-accent text-sm transition-colors">
                   <div className="flex items-center gap-1 w-full">
                     <button onClick={() => toggleDatabase(db.name)} className="flex items-center gap-1 flex-1 min-w-0">
-                      {db.isExpanded ? (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      {!isActiveDatabase && (
+                        db.isExpanded ? (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        )
                       )}
                       <Database className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       <span className="flex-1 text-left truncate">{db.name}</span>
@@ -591,7 +554,8 @@ export const Sidebar: React.FC = () => {
                   )}
                 </AnimatePresence>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

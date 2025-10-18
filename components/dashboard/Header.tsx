@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { ConnectionManager } from './ConnectionManager';
 import { cn } from '@/lib/utils';
+import { app_name } from '../../config.js';
 
 export const Header: React.FC = () => {
   const { connections, activeConnectionId, setActiveConnection, theme, setTheme, toggleCommandPalette } = useStore();
@@ -29,8 +30,8 @@ export const Header: React.FC = () => {
         {/* Logo and Connection Selector */}
         <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
           <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-            <Database className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-            <h1 className="text-sm sm:text-xl font-bold hidden sm:block">MongoDB Web</h1>
+            <img src="/nobg.png" alt={app_name} className="h-5 w-5 sm:h-8 sm:w-8" />
+            <h1 className="text-sm sm:text-xl font-bold hidden sm:block">{app_name}</h1>
             <h1 className="text-sm font-bold sm:hidden">MongoDB</h1>
           </div>
 

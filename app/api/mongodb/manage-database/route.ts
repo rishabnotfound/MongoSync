@@ -13,7 +13,14 @@ export async function POST(request: NextRequest) {
     if (!uri || !database) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields' },
-        { status: 400 }
+        {
+          status: 400,
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          }
+        }
       );
     }
 
@@ -27,10 +34,19 @@ export async function POST(request: NextRequest) {
       // Optionally delete the placeholder
       await db.collection('_init').drop();
 
-      return NextResponse.json({
-        success: true,
-        data: { database, created: true },
-      });
+      return NextResponse.json(
+        {
+          success: true,
+          data: { database, created: true },
+        },
+        {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          }
+        }
+      );
     } finally {
       await client.close();
     }
@@ -38,7 +54,14 @@ export async function POST(request: NextRequest) {
     console.error('Error creating database:', error);
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to create database' },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
+      }
     );
   }
 }
@@ -50,7 +73,14 @@ export async function DELETE(request: NextRequest) {
     if (!uri || !database) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields' },
-        { status: 400 }
+        {
+          status: 400,
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          }
+        }
       );
     }
 
@@ -61,10 +91,19 @@ export async function DELETE(request: NextRequest) {
       const db = client.db(database);
       await db.dropDatabase();
 
-      return NextResponse.json({
-        success: true,
-        data: { database, deleted: true },
-      });
+      return NextResponse.json(
+        {
+          success: true,
+          data: { database, deleted: true },
+        },
+        {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          }
+        }
+      );
     } finally {
       await client.close();
     }
@@ -72,7 +111,14 @@ export async function DELETE(request: NextRequest) {
     console.error('Error deleting database:', error);
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to delete database' },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
+      }
     );
   }
 }

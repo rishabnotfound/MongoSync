@@ -13,7 +13,14 @@ export async function POST(request: NextRequest) {
     if (!uri || !database || !collection) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields' },
-        { status: 400 }
+        {
+          status: 400,
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          }
+        }
       );
     }
 
@@ -24,10 +31,19 @@ export async function POST(request: NextRequest) {
       const db = client.db(database);
       await db.createCollection(collection);
 
-      return NextResponse.json({
-        success: true,
-        data: { database, collection, created: true },
-      });
+      return NextResponse.json(
+        {
+          success: true,
+          data: { database, collection, created: true },
+        },
+        {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          }
+        }
+      );
     } finally {
       await client.close();
     }
@@ -35,7 +51,14 @@ export async function POST(request: NextRequest) {
     console.error('Error creating collection:', error);
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to create collection' },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
+      }
     );
   }
 }
@@ -47,7 +70,14 @@ export async function DELETE(request: NextRequest) {
     if (!uri || !database || !collection) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields' },
-        { status: 400 }
+        {
+          status: 400,
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          }
+        }
       );
     }
 
@@ -58,10 +88,19 @@ export async function DELETE(request: NextRequest) {
       const db = client.db(database);
       await db.collection(collection).drop();
 
-      return NextResponse.json({
-        success: true,
-        data: { database, collection, deleted: true },
-      });
+      return NextResponse.json(
+        {
+          success: true,
+          data: { database, collection, deleted: true },
+        },
+        {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          }
+        }
+      );
     } finally {
       await client.close();
     }
@@ -69,7 +108,14 @@ export async function DELETE(request: NextRequest) {
     console.error('Error deleting collection:', error);
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to delete collection' },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
+      }
     );
   }
 }

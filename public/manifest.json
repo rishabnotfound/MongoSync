@@ -1,0 +1,26 @@
+{
+  "name": "MongoDB Web",
+  "short_name": "MongoDB Web",
+  "description": "A modern web-based MongoDB database management tool",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#10B981",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/nobg.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "screenshots": [],
+  "categories": ["productivity", "utilities", "developer tools"],
+  "shortcuts": []
+}

@@ -12,16 +12,32 @@ export async function POST(request: NextRequest) {
     if (!uri || !database || !collection) {
       return NextResponse.json(
         { success: false, error: 'URI, database, and collection are required' },
-        { status: 400 }
+        {
+          status: 400,
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          }
+        }
       );
     }
 
     const stats = await getCollectionStats(uri, database, collection);
 
-    return NextResponse.json({
-      success: true,
-      data: { stats },
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        data: { stats },
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
+      }
+    );
   } catch (error) {
     console.error('Error fetching stats:', error);
     return NextResponse.json(
@@ -29,7 +45,14 @@ export async function POST(request: NextRequest) {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to fetch stats',
       },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
+      }
     );
   }
 }

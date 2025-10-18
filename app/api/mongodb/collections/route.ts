@@ -12,16 +12,32 @@ export async function POST(request: NextRequest) {
     if (!uri || !database) {
       return NextResponse.json(
         { success: false, error: 'URI and database are required' },
-        { status: 400 }
+        {
+          status: 400,
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          }
+        }
       );
     }
 
     const collections = await listCollections(uri, database);
 
-    return NextResponse.json({
-      success: true,
-      data: { collections },
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        data: { collections },
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
+      }
+    );
   } catch (error) {
     console.error('Error listing collections:', error);
     return NextResponse.json(
@@ -29,7 +45,14 @@ export async function POST(request: NextRequest) {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to list collections',
       },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
+      }
     );
   }
 }

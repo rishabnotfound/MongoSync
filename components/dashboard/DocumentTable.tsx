@@ -23,6 +23,64 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { MongoDocument } from '@/types';
 import { cn, prettyPrintJson } from '@/lib/utils';
+
+// Helper function to render JSON with syntax highlighting
+const renderHighlightedJson = (obj: any, indent = 0): React.ReactNode => {
+  const indentStr = '  '.repeat(indent);
+
+  if (obj === null) {
+    return <span className="text-purple-500">null</span>;
+  }
+
+  if (typeof obj === 'boolean') {
+    return <span className="text-purple-500">{obj.toString()}</span>;
+  }
+
+  if (typeof obj === 'number') {
+    return <span className="text-green-500">{obj}</span>;
+  }
+
+  if (typeof obj === 'string') {
+    return <span className="text-amber-500">&quot;{obj}&quot;</span>;
+  }
+
+  if (Array.isArray(obj)) {
+    if (obj.length === 0) return '[]';
+
+    return (
+      <>
+        {'[\n'}
+        {obj.map((item, i) => (
+          <React.Fragment key={i}>
+            {indentStr}  {renderHighlightedJson(item, indent + 1)}
+            {i < obj.length - 1 ? ',\n' : '\n'}
+          </React.Fragment>
+        ))}
+        {indentStr}{']'}
+      </>
+    );
+  }
+
+  if (typeof obj === 'object') {
+    const keys = Object.keys(obj);
+    if (keys.length === 0) return '{}';
+
+    return (
+      <>
+        {'{\n'}
+        {keys.map((key, i) => (
+          <React.Fragment key={key}>
+            {indentStr}  <span className="text-blue-400">&quot;{key}&quot;</span>: {renderHighlightedJson(obj[key], indent + 1)}
+            {i < keys.length - 1 ? ',\n' : '\n'}
+          </React.Fragment>
+        ))}
+        {indentStr}{'}'}
+      </>
+    );
+  }
+
+  return String(obj);
+};
 import { motion } from 'framer-motion';
 import { Toast, ToastType } from '@/components/ui/Toast';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -436,17 +494,17 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
           </div>
         ) : viewMode === 'table' ? (
           <table className="w-full">
-            <thead className="bg-muted/50 sticky top-0">
+            <thead className="sticky top-0 z-20 bg-muted">
               <tr>
                 {allKeys.map((key) => (
                   <th
                     key={key}
-                    className="px-4 py-2 text-left text-sm font-medium border-b border-border"
+                    className="px-4 py-2 text-left text-sm font-medium border-b border-border bg-muted"
                   >
                     {key}
                   </th>
                 ))}
-                <th className="px-4 py-2 text-right text-sm font-medium border-b border-border sticky right-0 bg-muted/50">
+                <th className="px-4 py-2 text-right text-sm font-medium border-b border-border bg-muted sticky right-0 z-20">
                   Actions
                 </th>
               </tr>
@@ -465,7 +523,7 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                       {renderValue(doc[key])}
                     </td>
                   ))}
-                  <td className="px-4 py-2 text-right sticky right-0 bg-background">
+                  <td className="px-4 py-2 text-right sticky right-0 bg-card z-10">
                     <div className="flex items-center justify-end gap-1">
                       <Button
                         variant="ghost"
@@ -528,8 +586,8 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                     </Button>
                   </div>
                 </div>
-                <pre className="text-xs overflow-x-auto bg-background p-2 rounded border border-border">
-                  {prettyPrintJson(doc)}
+                <pre className="text-xs bg-background p-2 rounded border border-border whitespace-pre-wrap break-words overflow-hidden">
+                  {renderHighlightedJson(doc)}
                 </pre>
               </motion.div>
             ))}

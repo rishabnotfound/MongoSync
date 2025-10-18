@@ -40,7 +40,14 @@ export async function POST(request: NextRequest) {
     if (!uri || !database || !collection) {
       return NextResponse.json(
         { success: false, error: 'URI, database, and collection are required' },
-        { status: 400 }
+        {
+          status: 400,
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          }
+        }
       );
     }
 
@@ -49,15 +56,24 @@ export async function POST(request: NextRequest) {
 
     const result = await findDocuments(uri, database, collection, convertedFilter, options);
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        documents: result.documents,
-        total: result.total,
-        page: Math.floor((options.skip || 0) / (options.limit || 50)) + 1,
-        pageSize: options.limit || 50,
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          documents: result.documents,
+          total: result.total,
+          page: Math.floor((options.skip || 0) / (options.limit || 50)) + 1,
+          pageSize: options.limit || 50,
+        },
       },
-    });
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
+      }
+    );
   } catch (error) {
     console.error('Error fetching documents:', error);
     return NextResponse.json(
@@ -65,7 +81,14 @@ export async function POST(request: NextRequest) {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to fetch documents',
       },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
+      }
     );
   }
 }
@@ -78,16 +101,32 @@ export async function PUT(request: NextRequest) {
     if (!uri || !database || !collection || !document) {
       return NextResponse.json(
         { success: false, error: 'URI, database, collection, and document are required' },
-        { status: 400 }
+        {
+          status: 400,
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          }
+        }
       );
     }
 
     const result = await insertDocument(uri, database, collection, document);
 
-    return NextResponse.json({
-      success: true,
-      data: { insertedId: result.insertedId },
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        data: { insertedId: result.insertedId },
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
+      }
+    );
   } catch (error) {
     console.error('Error inserting document:', error);
     return NextResponse.json(
@@ -95,7 +134,14 @@ export async function PUT(request: NextRequest) {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to insert document',
       },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
+      }
     );
   }
 }
@@ -108,7 +154,14 @@ export async function PATCH(request: NextRequest) {
     if (!uri || !database || !collection || !filter || !update) {
       return NextResponse.json(
         { success: false, error: 'URI, database, collection, filter, and update are required' },
-        { status: 400 }
+        {
+          status: 400,
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          }
+        }
       );
     }
 
@@ -117,10 +170,19 @@ export async function PATCH(request: NextRequest) {
 
     const result = await updateDocument(uri, database, collection, convertedFilter, update);
 
-    return NextResponse.json({
-      success: true,
-      data: { modifiedCount: result.modifiedCount },
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        data: { modifiedCount: result.modifiedCount },
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
+      }
+    );
   } catch (error) {
     console.error('Error updating document:', error);
     return NextResponse.json(
@@ -128,7 +190,14 @@ export async function PATCH(request: NextRequest) {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to update document',
       },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
+      }
     );
   }
 }
@@ -141,7 +210,14 @@ export async function DELETE(request: NextRequest) {
     if (!uri || !database || !collection || !filter) {
       return NextResponse.json(
         { success: false, error: 'URI, database, collection, and filter are required' },
-        { status: 400 }
+        {
+          status: 400,
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          }
+        }
       );
     }
 
@@ -150,10 +226,19 @@ export async function DELETE(request: NextRequest) {
 
     const result = await deleteDocument(uri, database, collection, convertedFilter);
 
-    return NextResponse.json({
-      success: true,
-      data: { deletedCount: result.deletedCount },
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        data: { deletedCount: result.deletedCount },
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
+      }
+    );
   } catch (error) {
     console.error('Error deleting document:', error);
     return NextResponse.json(
@@ -161,7 +246,14 @@ export async function DELETE(request: NextRequest) {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to delete document',
       },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
+      }
     );
   }
 }

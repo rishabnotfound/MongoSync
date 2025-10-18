@@ -7,7 +7,12 @@
       "Bash(npm run build)",
       "Bash(powershell -Command \"Remove-Item -Path .next -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path node_modules\\.cache -Recurse -Force -ErrorAction SilentlyContinue\")",
       "Bash(curl -s http://localhost:3000)",
-      "Bash(powershell -Command \"Remove-Item -Path .next -Recurse -Force -ErrorAction SilentlyContinue\")"
+      "Bash(powershell -Command \"Remove-Item -Path .next -Recurse -Force -ErrorAction SilentlyContinue\")",
+      "Bash(npm run dev)",
+      "Bash(find \"C:\\Users\\R\\Downloads\\Projects\\MongoDB-Web\\app\" -type f ( -name \"*.ts\" -o -name \"*.tsx\" -o -name \"*.js\" -o -name \"*.json\" ))",
+      "Bash(find \"C:\\Users\\R\\Downloads\\Projects\\MongoDB-Web\\components\" -type f ( -name \"*.ts\" -o -name \"*.tsx\" -o -name \"*.js\" ))",
+      "Bash(find \"C:\\Users\\R\\Downloads\\Projects\\MongoDB-Web\\lib\" -type f ( -name \"*.ts\" -o -name \"*.tsx\" -o -name \"*.js\" ))",
+      "Bash(find \"C:\\Users\\R\\Downloads\\Projects\\MongoDB-Web\\services\" -type f ( -name \"*.ts\" -o -name \"*.tsx\" -o -name \"*.js\" ))"
     ],
     "deny": [],
     "ask": []
