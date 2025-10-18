@@ -6,15 +6,20 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Plus, Database, Trash2, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Plus, Database, Trash2, CheckCircle2, XCircle, Loader2, Copy } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Toast, ToastType } from '@/components/ui/Toast';
 import { validateMongoUri } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
-export const ConnectionManager: React.FC = () => {
+interface ConnectionManagerProps {
+  onConnectionSelect?: () => void;
+}
+
+export const ConnectionManager: React.FC<ConnectionManagerProps> = ({ onConnectionSelect }) => {
   const { connections, addConnection, removeConnection, updateConnection, setActiveConnection } =
     useStore();
 
@@ -22,6 +27,11 @@ export const ConnectionManager: React.FC = () => {
   const [formData, setFormData] = useState({ name: '', uri: '' });
   const [errors, setErrors] = useState({ name: '', uri: '' });
   const [isConnecting, setIsConnecting] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: ToastType; visible: boolean }>({
+    message: '',
+    type: 'info',
+    visible: false,
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,15 +131,31 @@ export const ConnectionManager: React.FC = () => {
     }
   };
 
+  const handleCopyUri = async (uri: string) => {
+    try {
+      await navigator.clipboard.writeText(uri);
+      setToast({ message: 'Connection URI copied to clipboard!', type: 'success', visible: true });
+    } catch (error) {
+      setToast({ message: 'Failed to copy URI', type: 'error', visible: true });
+    }
+  };
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Connections</h2>
-        <Button onClick={() => setIsModalOpen(true)} size="sm">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Connection
-        </Button>
-      </div>
+    <>
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.visible}
+        onClose={() => setToast({ ...toast, visible: false })}
+      />
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Connections</h2>
+          <Button onClick={() => setIsModalOpen(true)} size="sm">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Connection
+          </Button>
+        </div>
 
       {/* Connection List */}
       <div className="space-y-2">
@@ -152,6 +178,8 @@ export const ConnectionManager: React.FC = () => {
                 } else {
                   setActiveConnection(connection.id);
                 }
+                // Close the modal after selecting
+                onConnectionSelect?.();
               }}
             >
               <div className="flex items-start justify-between">
@@ -199,9 +227,22 @@ export const ConnectionManager: React.FC = () => {
                     size="icon"
                     onClick={(e) => {
                       e.stopPropagation();
+                      handleCopyUri(connection.uri);
+                    }}
+                    className="h-8 w-8"
+                    title="Copy Connection URI"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
                       handleDelete(connection.id);
                     }}
                     className="h-8 w-8"
+                    title="Delete Connection"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -268,6 +309,7 @@ export const ConnectionManager: React.FC = () => {
           </div>
         </form>
       </Modal>
-    </div>
+      </div>
+    </>
   );
 };

@@ -12,7 +12,7 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 export const CollectionTabs: React.FC = () => {
-  const { tabs, activeTabId, setActiveTab, removeTab } = useStore();
+  const { tabs, activeTabId, setActiveTab, removeTab, setActiveConnection } = useStore();
 
   if (tabs.length === 0) {
     return null;
@@ -36,7 +36,11 @@ export const CollectionTabs: React.FC = () => {
                   ? 'bg-background text-foreground'
                   : 'bg-card hover:bg-accent/50 text-muted-foreground'
               )}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id);
+                // Auto-switch connection when clicking tab
+                setActiveConnection(tab.connectionId);
+              }}
             >
               {/* Active indicator */}
               {isActive && (

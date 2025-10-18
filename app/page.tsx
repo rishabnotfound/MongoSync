@@ -63,7 +63,7 @@ export default function DashboardPage() {
           </Button>
         }
       >
-        <ConnectionManager />
+        <ConnectionManager onConnectionSelect={() => setShowConnectionManager(false)} />
       </Modal>
 
       {/* Command Palette */}

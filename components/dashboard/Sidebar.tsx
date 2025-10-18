@@ -14,17 +14,30 @@ import {
   RefreshCw,
   PanelLeftClose,
   PanelLeft,
+  Plus,
+  Trash2,
+  MoreVertical,
 } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Modal } from '@/components/ui/Modal';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface DatabaseNode {
   name: string;
-  collections: string[];
+  collections: CollectionNode[];
   isExpanded: boolean;
   isLoading: boolean;
+  sizeOnDisk?: number;
+}
+
+interface CollectionNode {
+  name: string;
+  count?: number;
+  size?: number;
 }
 
 export const Sidebar: React.FC = () => {
@@ -35,10 +48,24 @@ export const Sidebar: React.FC = () => {
     toggleSidebar,
     addTab,
     setActiveConnection,
+    tabs,
+    activeTabId,
   } = useStore();
 
   const [databases, setDatabases] = useState<DatabaseNode[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showCreateDbModal, setShowCreateDbModal] = useState(false);
+  const [showCreateCollModal, setShowCreateCollModal] = useState(false);
+  const [newDbName, setNewDbName] = useState('');
+  const [newCollName, setNewCollName] = useState('');
+  const [initialCollName, setInitialCollName] = useState(''); // For new database
+  const [selectedDb, setSelectedDb] = useState('');
+  const [deleteDialog, setDeleteDialog] = useState<{
+    isOpen: boolean;
+    type: 'database' | 'collection';
+    name: string;
+    dbName?: string;
+  }>({ isOpen: false, type: 'database', name: '' });
 
   const activeConnection = connections.find((c) => c.id === activeConnectionId);
 
@@ -62,6 +89,7 @@ export const Sidebar: React.FC = () => {
           collections: [],
           isExpanded: false,
           isLoading: false,
+          sizeOnDisk: db.sizeOnDisk,
         }));
         setDatabases(dbNodes);
       }
@@ -80,6 +108,85 @@ export const Sidebar: React.FC = () => {
       setDatabases([]);
     }
   }, [activeConnection, loadDatabases]);
+
+  // Auto-expand database when active tab changes
+  useEffect(() => {
+    const activeTab = tabs.find((t) => t.id === activeTabId);
+    if (!activeTab || activeTab.connectionId !== activeConnectionId || databases.length === 0) {
+      return;
+    }
+
+    const db = databases.find((d) => d.name === activeTab.database);
+    if (!db) return;
+
+    // Always expand the database if it's not expanded
+    if (!db.isExpanded) {
+      if (db.collections.length === 0 && !db.isLoading) {
+        // Need to load collections first
+        setDatabases((prev) =>
+          prev.map((d) => (d.name === activeTab.database ? { ...d, isExpanded: true, isLoading: true } : d))
+        );
+
+        // Load collections
+        if (activeConnection) {
+          fetch('/api/mongodb/collections', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              uri: activeConnection.uri,
+              database: activeTab.database,
+            }),
+          })
+            .then(res => res.json())
+            .then(async (result) => {
+              if (result.success) {
+                const collectionsWithStats = await Promise.all(
+                  result.data.collections.map(async (c: any) => {
+                    try {
+                      const statsResponse = await fetch('/api/mongodb/stats', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          uri: activeConnection.uri,
+                          database: activeTab.database,
+                          collection: c.name,
+                        }),
+                      });
+                      const statsResult = await statsResponse.json();
+                      return {
+                        name: c.name,
+                        count: statsResult.data?.stats?.count || 0,
+                        size: statsResult.data?.stats?.size || 0,
+                      };
+                    } catch {
+                      return { name: c.name, count: 0, size: 0 };
+                    }
+                  })
+                );
+
+                setDatabases((prev) =>
+                  prev.map((d) =>
+                    d.name === activeTab.database
+                      ? { ...d, collections: collectionsWithStats, isLoading: false }
+                      : d
+                  )
+                );
+              }
+            })
+            .catch(() => {
+              setDatabases((prev) =>
+                prev.map((d) => (d.name === activeTab.database ? { ...d, isLoading: false } : d))
+              );
+            });
+        }
+      } else {
+        // Collections already loaded, just expand
+        setDatabases((prev) =>
+          prev.map((d) => (d.name === activeTab.database ? { ...d, isExpanded: true } : d))
+        );
+      }
+    }
+  }, [activeTabId, activeConnectionId, databases, tabs, activeConnection]);
 
   const loadCollections = async (databaseName: string) => {
     if (!activeConnection) return;
@@ -101,12 +208,37 @@ export const Sidebar: React.FC = () => {
       const result = await response.json();
 
       if (result.success) {
+        // Fetch stats for each collection
+        const collectionsWithStats = await Promise.all(
+          result.data.collections.map(async (c: any) => {
+            try {
+              const statsResponse = await fetch('/api/mongodb/stats', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  uri: activeConnection.uri,
+                  database: databaseName,
+                  collection: c.name,
+                }),
+              });
+              const statsResult = await statsResponse.json();
+              return {
+                name: c.name,
+                count: statsResult.data?.stats?.count || 0,
+                size: statsResult.data?.stats?.size || 0,
+              };
+            } catch {
+              return { name: c.name, count: 0, size: 0 };
+            }
+          })
+        );
+
         setDatabases((prev) =>
           prev.map((db) =>
             db.name === databaseName
               ? {
                   ...db,
-                  collections: result.data.collections.map((c: any) => c.name),
+                  collections: collectionsWithStats,
                   isLoading: false,
                 }
               : db
@@ -146,6 +278,113 @@ export const Sidebar: React.FC = () => {
     });
   };
 
+  const handleCreateDatabase = async () => {
+    if (!activeConnection || !newDbName.trim() || !initialCollName.trim()) return;
+
+    try {
+      // Create collection which will create the database
+      const response = await fetch('/api/mongodb/manage-collection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uri: activeConnection.uri,
+          database: newDbName.trim(),
+          collection: initialCollName.trim(),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setShowCreateDbModal(false);
+        setNewDbName('');
+        setInitialCollName('');
+        loadDatabases(); // Refresh list
+      } else {
+        alert('Failed to create database: ' + result.error);
+      }
+    } catch (error) {
+      alert('Error creating database');
+    }
+  };
+
+  const handleCreateCollection = async () => {
+    if (!activeConnection || !selectedDb || !newCollName.trim()) return;
+
+    try {
+      const response = await fetch('/api/mongodb/manage-collection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uri: activeConnection.uri,
+          database: selectedDb,
+          collection: newCollName.trim(),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setShowCreateCollModal(false);
+        setNewCollName('');
+        setSelectedDb('');
+        loadDatabases(); // Refresh list
+      } else {
+        alert('Failed to create collection: ' + result.error);
+      }
+    } catch (error) {
+      alert('Error creating collection');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!activeConnection || !deleteDialog.name) return;
+
+    try {
+      if (deleteDialog.type === 'database') {
+        const response = await fetch('/api/mongodb/manage-database', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            uri: activeConnection.uri,
+            database: deleteDialog.name,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          setDeleteDialog({ isOpen: false, type: 'database', name: '' });
+          loadDatabases(); // Refresh list
+        } else {
+          alert('Failed to delete database: ' + result.error);
+        }
+      } else {
+        // Collection delete
+        const response = await fetch('/api/mongodb/manage-collection', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            uri: activeConnection.uri,
+            database: deleteDialog.dbName,
+            collection: deleteDialog.name,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          setDeleteDialog({ isOpen: false, type: 'collection', name: '' });
+          loadDatabases(); // Refresh list
+        } else {
+          alert('Failed to delete collection: ' + result.error);
+        }
+      }
+    } catch (error) {
+      alert('Error deleting');
+    }
+  };
+
   if (sidebarCollapsed) {
     return (
       <div className="w-12 border-r border-border bg-card p-2 flex flex-col items-center">
@@ -166,6 +405,16 @@ export const Sidebar: React.FC = () => {
       <div className="border-b border-border p-4 flex items-center justify-between">
         <h2 className="font-semibold">Explorer</h2>
         <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowCreateDbModal(true)}
+            disabled={!activeConnection}
+            className="h-8 w-8"
+            title="Create Database"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -206,21 +455,50 @@ export const Sidebar: React.FC = () => {
             )}
 
             {databases.map((db) => (
-              <div key={db.name}>
+              <div key={db.name} className="group">
                 {/* Database Node */}
-                <button
-                  onClick={() => toggleDatabase(db.name)}
-                  className="w-full flex items-center gap-1 px-2 py-1.5 rounded hover:bg-accent text-sm transition-colors"
-                >
-                  {db.isExpanded ? (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <div className="w-full flex flex-col gap-0.5 px-2 py-1.5 rounded hover:bg-accent text-sm transition-colors">
+                  <div className="flex items-center gap-1 w-full">
+                    <button onClick={() => toggleDatabase(db.name)} className="flex items-center gap-1 flex-1 min-w-0">
+                      {db.isExpanded ? (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      )}
+                      <Database className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span className="flex-1 text-left truncate">{db.name}</span>
+                    </button>
+                    {db.isLoading && <RefreshCw className="h-3 w-3 animate-spin flex-shrink-0" />}
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedDb(db.name);
+                          setShowCreateCollModal(true);
+                        }}
+                        className="p-1 hover:bg-accent-foreground/10 rounded"
+                        title="Add Collection"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteDialog({ isOpen: true, type: 'database', name: db.name });
+                        }}
+                        className="p-1 hover:bg-destructive/20 rounded"
+                        title="Delete Database"
+                      >
+                        <Trash2 className="h-3 w-3 text-destructive" />
+                      </button>
+                    </div>
+                  </div>
+                  {db.sizeOnDisk && (
+                    <div className="text-xs text-muted-foreground pl-9">
+                      {(db.sizeOnDisk / 1024 / 1024).toFixed(2)} MB
+                    </div>
                   )}
-                  <Database className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                  <span className="flex-1 text-left truncate">{db.name}</span>
-                  {db.isLoading && <RefreshCw className="h-3 w-3 animate-spin flex-shrink-0" />}
-                </button>
+                </div>
 
                 {/* Collections */}
                 <AnimatePresence>
@@ -236,16 +514,54 @@ export const Sidebar: React.FC = () => {
                           No collections
                         </p>
                       )}
-                      {db.collections.map((collection) => (
-                        <button
-                          key={collection}
-                          onClick={() => openCollection(db.name, collection)}
-                          className="w-full flex items-center gap-1 px-2 py-1.5 rounded hover:bg-accent text-sm transition-colors"
-                        >
-                          <Table className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                          <span className="flex-1 text-left truncate text-sm">{collection}</span>
-                        </button>
-                      ))}
+                      {db.collections.map((collection) => {
+                        // Check if this collection is the active one
+                        const activeTab = tabs.find((t) => t.id === activeTabId);
+                        const isActive = activeTab &&
+                                        activeTab.connectionId === activeConnectionId &&
+                                        activeTab.database === db.name &&
+                                        activeTab.collection === collection.name;
+
+                        return (
+                        <div key={collection.name} className={cn(
+                          "group/coll w-full flex flex-col gap-0.5 px-2 py-1.5 rounded text-sm transition-colors",
+                          isActive ? "bg-primary/10 border-l-2 border-primary" : "hover:bg-accent"
+                        )}>
+                          <div className="flex items-center gap-1 w-full">
+                            <button
+                              onClick={() => openCollection(db.name, collection.name)}
+                              className="flex items-center gap-1 flex-1 min-w-0"
+                            >
+                              <Table className={cn(
+                                "h-3.5 w-3.5 flex-shrink-0",
+                                isActive ? "text-primary" : "text-muted-foreground"
+                              )} />
+                              <span className={cn(
+                                "flex-1 text-left truncate text-sm",
+                                isActive && "font-medium text-primary"
+                              )}>{collection.name}</span>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteDialog({ isOpen: true, type: 'collection', name: collection.name, dbName: db.name });
+                              }}
+                              className="p-1 hover:bg-destructive/20 rounded opacity-0 group-hover/coll:opacity-100 transition-opacity"
+                              title="Delete Collection"
+                            >
+                              <Trash2 className="h-3 w-3 text-destructive" />
+                            </button>
+                          </div>
+                          {(collection.count !== undefined || collection.size !== undefined) && (
+                            <div className="text-xs text-muted-foreground pl-5">
+                              {collection.count !== undefined && `${collection.count.toLocaleString()} docs`}
+                              {collection.count !== undefined && collection.size !== undefined && ' • '}
+                              {collection.size !== undefined && `${(collection.size / 1024).toFixed(1)} KB`}
+                            </div>
+                          )}
+                        </div>
+                        );
+                      })}
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -254,6 +570,105 @@ export const Sidebar: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Create Database Modal */}
+      <Modal
+        isOpen={showCreateDbModal}
+        onClose={() => {
+          setShowCreateDbModal(false);
+          setNewDbName('');
+          setInitialCollName('');
+        }}
+        title="Create Database"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setShowCreateDbModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateDatabase} disabled={!newDbName.trim() || !initialCollName.trim()}>
+              Create
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">MongoDB requires at least one collection to create a database.</p>
+          <div>
+            <label className="block text-sm font-medium mb-2">Database Name</label>
+            <Input
+              type="text"
+              placeholder="my_database"
+              value={newDbName}
+              onChange={(e) => setNewDbName(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Initial Collection Name</label>
+            <Input
+              type="text"
+              placeholder="my_collection"
+              value={initialCollName}
+              onChange={(e) => setInitialCollName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && newDbName.trim() && initialCollName.trim() && handleCreateDatabase()}
+            />
+          </div>
+        </div>
+      </Modal>
+
+      {/* Create Collection Modal */}
+      <Modal
+        isOpen={showCreateCollModal}
+        onClose={() => {
+          setShowCreateCollModal(false);
+          setNewCollName('');
+          setSelectedDb('');
+        }}
+        title="Create Collection"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setShowCreateCollModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateCollection} disabled={!newCollName.trim()}>
+              Create
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Database</label>
+            <Input
+              type="text"
+              value={selectedDb}
+              disabled
+              className="bg-muted"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Collection Name</label>
+            <Input
+              type="text"
+              placeholder="my_collection"
+              value={newCollName}
+              onChange={(e) => setNewCollName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && newCollName.trim() && handleCreateCollection()}
+            />
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={deleteDialog.isOpen}
+        onClose={() => setDeleteDialog({ isOpen: false, type: 'database', name: '' })}
+        onConfirm={handleDelete}
+        title={`Delete ${deleteDialog.type === 'database' ? 'Database' : 'Collection'}`}
+        message={`Are you sure you want to delete ${deleteDialog.type} "${deleteDialog.name}"? This action cannot be undone and will permanently delete all data.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+      />
     </motion.div>
   );
 };

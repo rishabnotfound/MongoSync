@@ -16,6 +16,7 @@ import {
   Copy,
   Download,
   Eye,
+  Database,
 } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { Button } from '@/components/ui/Button';
@@ -48,6 +49,9 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'json'>('json');
   const [filterQuery, setFilterQuery] = useState('{}');
+  const [lastFilter, setLastFilter] = useState('{}'); // Track last applied filter
+  const [customPage, setCustomPage] = useState('');
+  const [showCustomPageInput, setShowCustomPageInput] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<MongoDocument | null>(null);
   const [toast, setToast] = useState<{ message: string; type: ToastType; visible: boolean }>({
     message: '',
@@ -78,10 +82,16 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
 
     try {
       let filter = {};
+
+      // Parse JSON filter query
       try {
-        filter = JSON.parse(filterQuery);
+        const parsedFilter = JSON.parse(filterQuery);
+        // Only use if it's not an empty object or if user explicitly entered {}
+        if (Object.keys(parsedFilter).length > 0 || filterQuery.trim() === '{}') {
+          filter = parsedFilter;
+        }
       } catch {
-        // Invalid filter, use empty object
+        // Invalid JSON, use empty object
       }
 
       const response = await fetch('/api/mongodb/documents', {
@@ -115,6 +125,21 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
   useEffect(() => {
     loadDocuments();
   }, [loadDocuments]);
+
+  // Reset to page 1 when filter changes
+  useEffect(() => {
+    if (filterQuery !== lastFilter) {
+      setPage(1);
+      setLastFilter(filterQuery);
+    }
+  }, [filterQuery, lastFilter]);
+
+  // Reset to page 1 when switching collections
+  useEffect(() => {
+    setPage(1);
+    setFilterQuery('{}');
+    setLastFilter('{}');
+  }, [database, collection]);
 
   const handleDeleteClick = (doc: MongoDocument) => {
     setDeleteConfirm({ isOpen: true, document: doc });
@@ -215,7 +240,11 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
           throw new Error(result.error || 'Failed to add document');
         }
       }
+
+      // Close editor on success
+      setEditorState({ isOpen: false, document: null, mode: 'create' });
     } catch (error) {
+      setToast({ message: 'Failed to save document', type: 'error', visible: true });
       throw error;
     }
   };
@@ -239,6 +268,55 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
   };
 
   const totalPages = Math.ceil(total / pageSize);
+
+  // Generate page numbers to display
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+
+    if (totalPages <= 7) {
+      // Show all pages if 7 or less
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Always show first page
+      pages.push(1);
+
+      if (page > 3) {
+        pages.push('...');
+      }
+
+      // Show current page and 2 before/after
+      const start = Math.max(2, page - 1);
+      const end = Math.min(totalPages - 1, page + 1);
+
+      for (let i = start; i <= end; i++) {
+        if (!pages.includes(i)) {
+          pages.push(i);
+        }
+      }
+
+      if (page < totalPages - 2) {
+        pages.push('...');
+      }
+
+      // Always show last page
+      if (!pages.includes(totalPages)) {
+        pages.push(totalPages);
+      }
+    }
+
+    return pages;
+  };
+
+  const handleCustomPageGo = () => {
+    const pageNum = parseInt(customPage);
+    if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
+      setPage(pageNum);
+      setCustomPage('');
+      setShowCustomPageInput(false);
+    }
+  };
 
   // Extract all unique keys from documents for table headers
   const allKeys = React.useMemo(() => {
@@ -282,22 +360,36 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
         mode={editorState.mode}
       />
       <div className="flex flex-col h-full">
-      {/* Toolbar */}
-      <div className="border-b border-border p-2 sm:p-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-        <div className="flex items-center gap-2 flex-1">
-          <Input
-            placeholder='{"field": "value"}'
-            value={filterQuery}
-            onChange={(e) => setFilterQuery(e.target.value)}
-            className="flex-1 sm:max-w-xs text-xs sm:text-sm"
-          />
-          <Button variant="outline" size="sm" onClick={loadDocuments} className="flex-shrink-0">
-            <RefreshCw className={cn('h-3.5 w-3.5 sm:h-4 sm:w-4', isLoading && 'animate-spin')} />
-          </Button>
-        </div>
-
+      {/* Collection Header - More Prominent */}
+      <div className="border-b-2 border-primary/20 px-4 py-3 bg-primary/5">
         <div className="flex items-center gap-2">
-          <div className="flex items-center border border-border rounded-md flex-1 sm:flex-initial">
+          <Database className="h-5 w-5 text-primary" />
+          <span className="text-base font-semibold text-foreground">{database}</span>
+          <span className="text-muted-foreground font-bold">›</span>
+          <span className="text-base font-semibold text-primary">{collection}</span>
+        </div>
+      </div>
+
+      {/* Toolbar */}
+      <div className="border-b border-border p-2 sm:p-3 space-y-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          {/* Single MongoDB Query Input (like Compass) */}
+          <div className="flex items-center gap-2 flex-1">
+            <Input
+              placeholder='Filter: {"field": "value"} or {} for all'
+              value={filterQuery}
+              onChange={(e) => setFilterQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && loadDocuments()}
+              className="flex-1 text-xs sm:text-sm font-mono"
+            />
+            <Button variant="outline" size="sm" onClick={loadDocuments} className="flex-shrink-0" title="Apply Filter">
+              <RefreshCw className={cn('h-3.5 w-3.5 sm:h-4 sm:w-4', isLoading && 'animate-spin')} />
+            </Button>
+          </div>
+
+          {/* View and Action Buttons */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center border border-border rounded-md flex-1 sm:flex-initial">
             <Button
               variant={viewMode === 'json' ? 'secondary' : 'ghost'}
               size="sm"
@@ -325,6 +417,7 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
             <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1" />
             <span className="hidden sm:inline">Export</span>
           </Button>
+          </div>
         </div>
       </div>
 
@@ -445,50 +538,111 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
       </div>
 
       {/* Pagination */}
-      <div className="border-t border-border p-2 sm:p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
-        <div className="flex items-center gap-2 justify-center sm:justify-start">
-          <span className="text-xs sm:text-sm text-muted-foreground">
-            {total === 0 ? 'No documents' : `${(page - 1) * pageSize + 1}-${Math.min(page * pageSize, total)} of ${total}`}
-          </span>
-          <select
-            value={pageSize}
-            onChange={(e) => {
-              setPageSize(Number(e.target.value));
-              setPage(1);
-            }}
-            className="border border-border rounded-md px-2 py-1 text-xs sm:text-sm bg-background"
-          >
-            <option value={10}>10</option>
-            <option value={20}>20</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-          </select>
+      <div className="border-t border-border p-2 sm:p-3 space-y-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2 justify-center sm:justify-start">
+            <span className="text-xs sm:text-sm text-muted-foreground">
+              {total === 0 ? 'No documents' : `${(page - 1) * pageSize + 1}-${Math.min(page * pageSize, total)} of ${total.toLocaleString()}`}
+            </span>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setPage(1);
+              }}
+              className="border border-border rounded-md px-2 py-1 text-xs sm:text-sm bg-background"
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2 justify-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="text-xs sm:text-sm"
+            >
+              <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Prev</span>
+            </Button>
+
+            {/* Page Numbers */}
+            <div className="flex items-center gap-1">
+              {getPageNumbers().map((pageNum, idx) => (
+                pageNum === '...' ? (
+                  <span key={`ellipsis-${idx}`} className="px-2 text-muted-foreground">...</span>
+                ) : (
+                  <button
+                    key={pageNum}
+                    onClick={() => setPage(pageNum as number)}
+                    className={cn(
+                      'px-2 sm:px-3 py-1 rounded text-xs sm:text-sm transition-colors',
+                      page === pageNum
+                        ? 'bg-primary text-primary-foreground font-medium'
+                        : 'hover:bg-accent'
+                    )}
+                  >
+                    {pageNum}
+                  </button>
+                )
+              ))}
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="text-xs sm:text-sm"
+            >
+              <span className="hidden sm:inline">Next</span>
+              <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            </Button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 justify-center">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="text-xs sm:text-sm"
-          >
-            <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline">Previous</span>
-          </Button>
-          <span className="text-xs sm:text-sm whitespace-nowrap">
-            {page} / {totalPages || 1}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page >= totalPages}
-            className="text-xs sm:text-sm"
-          >
-            <span className="hidden sm:inline">Next</span>
-            <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          </Button>
+        {/* Custom Page Input */}
+        <div className="flex items-center justify-center gap-2">
+          {showCustomPageInput ? (
+            <>
+              <Input
+                type="number"
+                min={1}
+                max={totalPages}
+                value={customPage}
+                onChange={(e) => setCustomPage(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleCustomPageGo()}
+                placeholder="Page #"
+                className="w-20 h-8 text-xs"
+              />
+              <Button size="sm" onClick={handleCustomPageGo} className="h-8 text-xs">
+                Go
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setShowCustomPageInput(false);
+                  setCustomPage('');
+                }}
+                className="h-8 text-xs"
+              >
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <button
+              onClick={() => setShowCustomPageInput(true)}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Go to page...
+            </button>
+          )}
         </div>
       </div>
     </div>
