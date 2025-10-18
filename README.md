@@ -28,9 +28,13 @@ Modern MongoDB management dashboard built with Next.js 14, TypeScript, and Tailw
 ## Tech Stack
 
 **Frontend:** Next.js 14 • React 18 • TypeScript 5 • TailwindCSS 3
+
 **State:** Zustand • localStorage persistence
+
 **UI:** Framer Motion • Lucide Icons • cmdk • NProgress
+
 **Database:** MongoDB Node.js Driver 6
+
 **Build:** next-pwa • PostCSS • Autoprefixer
 
 ## Installation
