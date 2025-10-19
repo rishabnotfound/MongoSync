@@ -32,7 +32,7 @@ export const Header: React.FC = () => {
           <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             <img src="/nobg.png" alt={app_name} className="h-5 w-5 sm:h-8 sm:w-8" />
             <h1 className="text-sm sm:text-xl font-bold hidden sm:block">{app_name}</h1>
-            <h1 className="text-sm font-bold sm:hidden">MongoDB</h1>
+            <h1 className="text-sm font-bold sm:hidden">{app_name}</h1>
           </div>
 
           {connections.length > 0 && (

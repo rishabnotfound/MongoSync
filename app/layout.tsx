@@ -41,13 +41,7 @@ export default function RootLayout({
           src="https://cdn.jsdelivr.net/npm/disable-devtool@latest"
           strategy="afterInteractive"
         />
-        <Script
-          src="https://cdnjs.cloudflare.com/ajax/libs/devtools-detector/2.0.17/devtools-detector.js"
-          strategy="afterInteractive"
-        />
-        <Script src="/js/nocheats.js" strategy="afterInteractive" />
         <Script src="/js/smoothscroll.js" strategy="afterInteractive" />
-        <Script src="/js/protected_devtoolsdetector.js" strategy="afterInteractive" />
     </html>
   );
 }

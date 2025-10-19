@@ -1,6 +1,6 @@
 {
-  "name": "MongoDB Web",
-  "short_name": "MongoDB Web",
+  "name": "MongoSync",
+  "short_name": "MongoSync",
   "description": "A modern web-based MongoDB database management tool",
   "start_url": "/",
   "display": "standalone",

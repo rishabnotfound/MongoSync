@@ -105,6 +105,7 @@ MongoDB-Web/
 ## Configuration
 
 **App Config** Edit `config.js`
+**PWA CONFIG** Edit `public/manifest.json`
 
 ## Build & Deploy
 

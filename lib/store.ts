@@ -5,11 +5,12 @@
 import { create } from 'zustand';
 import { AppState, MongoConnection, CollectionTab, Theme } from '@/types';
 import { generateId, extractHostFromUri } from './utils';
+import { app_name } from '@/config';
 
 const STORAGE_KEYS = {
-  CONNECTIONS: 'mongodb-dashboard-connections',
-  THEME: 'mongodb-dashboard-theme',
-  SIDEBAR: 'mongodb-dashboard-sidebar',
+  CONNECTIONS: `${app_name}-dashboard-connections`,
+  THEME: `${app_name}-dashboard-theme`,
+  SIDEBAR: `${app_name}-dashboard-sidebar`,
 };
 
 export const useStore = create<AppState>((set, get) => ({
